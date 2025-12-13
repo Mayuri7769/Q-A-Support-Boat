@@ -39,6 +39,13 @@ Content-Type: application/json
     "urls": ["https://example.com"]
 }
 
+Sample Response:
+{
+    "message": "Ingestion completed successfully",
+    "pages_crawled": 1,
+    "total_chunks": 1
+}
+
 4. Once ingestion completes, you can query your bot:
 POST /query
 Content-Type: application/json
@@ -46,4 +53,17 @@ Content-Type: application/json
 {
     "question": "What is this site about?",
     "top_k": 3
+}
+
+Sample Response:
+{
+    "question": "What is this site about?",
+    "answer": "This domain is for use in documentation examples without needing permission.",
+    "sources": [
+        {
+            "url": "https://example.com",
+            "chunk_id": 0,
+            "text": "Example Domain Example Domain This domain is for use in documentation examples without needing permission. Avoid use in operations. Learn more"
+        }
+    ]
 }
