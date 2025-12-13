@@ -3,7 +3,7 @@
 An end-to-end **Retrieval Augmented Generation (RAG)** system built with **FastAPI**, **FAISS**, **SentenceTransformers**, and **Gemini**.  
 It crawls websites, extracts and cleans text, chunks and embeds content, retrieves relevant context, and generates grounded answers with strict hallucination control.
 
----
+-----
 
 ## Features
 
@@ -27,7 +27,9 @@ pip install -r requirements.txt
 
 2. Create a .env file with your settings (API_HOST, API_PORT, START_URL, LLM_MODEL, etc.).
 3. Important: FAISS index (faiss.index) and metadata (metadata.pkl) are generated locally during ingestion.
-They are not included in the repo. Run the ingestion endpoint first to create them:
+They are not included in the repo. 
+
+Run the ingestion endpoint first to create them:
 
 # Start FastAPI server
 python main.py
