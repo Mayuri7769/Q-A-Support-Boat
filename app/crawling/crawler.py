@@ -17,13 +17,12 @@ class WebCrawler:
 
     def is_valid_url(self, url: str) -> bool:
         """
-        Check if the URL belongs to the same domain
-        and uses http/https.
+        Allow only same-domain links with http/https.
         """
         parsed = urlparse(url)
         return (
-                parsed.netloc == self.domain
-                and parsed.scheme in ["http", "https"]
+            parsed.netloc == self.domain
+            and parsed.scheme in ("http", "https")
         )
 
     def fetch_page(self, url: str) -> str:
@@ -38,9 +37,22 @@ class WebCrawler:
             print(f"[ERROR] Failed to fetch {url}: {e}")
             return ""
 
+    def extract_text(self, html: str) -> str:
+        """
+        Convert HTML → clean readable text.
+        """
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Remove useless tags
+        for tag in soup(["script", "style", "noscript"]):
+            tag.extract()
+
+        text = soup.get_text(separator=" ", strip=True)
+        return text
+
     def extract_links(self, base_url: str, html: str) -> List[str]:
         """
-        Extract and normalize all valid links from a page.
+        Extract all valid hyperlinks.
         """
         soup = BeautifulSoup(html, "html.parser")
         links = []
@@ -56,8 +68,8 @@ class WebCrawler:
 
     def crawl(self) -> List[Dict[str, str]]:
         """
-        Start crawling and return list of
-        { "url": ..., "html": ... }
+        Crawl website and return list of:
+        { "url": ..., "text": ... }
         """
         crawled_data = []
 
@@ -69,19 +81,21 @@ class WebCrawler:
 
             print(f"[CRAWLING] {current_url}")
             html = self.fetch_page(current_url)
-
             if not html:
                 continue
 
+            text = self.extract_text(html)
+
             self.visited_urls.add(current_url)
 
+            # FIXED OUTPUT FORMAT
             crawled_data.append({
                 "url": current_url,
-                "html": html
+                "text": text
             })
 
+            # enqueue links
             links = self.extract_links(current_url, html)
-
             for link in links:
                 if link not in self.visited_urls:
                     self.queue.append(link)
@@ -90,7 +104,7 @@ class WebCrawler:
         return crawled_data
 
 
-# ✅ Manual test support
+# Manual test
 if __name__ == "__main__":
     test_url = "https://example.com"
     crawler = WebCrawler(base_url=test_url, max_pages=5)
@@ -98,4 +112,4 @@ if __name__ == "__main__":
 
     for page in data:
         print("\nURL:", page["url"])
-        print("HTML length:", len(page["html"]))
+        print("Text length:", len(page["text"]))

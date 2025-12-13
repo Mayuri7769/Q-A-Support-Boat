@@ -15,16 +15,13 @@ from dotenv import load_dotenv
 load_dotenv()
 from app.crawling.crawler import WebCrawler
 
-from app.extraction.text_extractor import TextExtractor
+
 from app.chunking.chunker import Chunker
 
 start_url = os.getenv("START_URL", "https://example.com")
-crawler = WebCrawler(
-    base_url=start_url,
-    max_pages=int(os.getenv("MAX_PAGES", 50))
-)
 
-text_extractor = TextExtractor()
+
+
 chunker = Chunker(chunk_size=500)  # Adjust chunk size as needed
 
 
@@ -57,43 +54,40 @@ gemini = GeminiClient(model_name=os.getenv("LLM_MODEL"))
 class IngestRequest(BaseModel):
     urls: List[str]
 
-import requests
-
 
 
 @app.post("/ingest")
 def ingest_data(request: IngestRequest):
     print("📥 /ingest endpoint hit!")
+
     try:
-        pages_crawled = 0
+        total_pages = 0
         total_chunks = 0
 
         for url in request.urls:
-            # 1️⃣ Fetch HTML
-            response = requests.get(url, timeout=15)
-            html = response.text
+            # 1️⃣ Crawl site → returns {"url", "text"}
+            crawler = WebCrawler(base_url=url, max_pages=10)
+            pages = crawler.crawl()
 
-            # 2️⃣ Extract clean text
-            extracted_pages = text_extractor.extract_texts([
-                {"url": url, "html": html}
-            ])
+            total_pages += len(pages)
 
-            # 3️⃣ Chunk pages correctly ✅
-            chunks = chunker.chunk_pages(extracted_pages)
+            # 2️⃣ Chunk pages (expects "text")
+            chunks = chunker.chunk_pages(pages)
 
-            # 4️⃣ Generate embeddings using CHUNK TEXT ✅
-            texts = [c["chunk"] for c in chunks]
+            if not chunks:
+                continue
+
+            # 3️⃣ Generate embeddings
             embeddings = generator.generate_embeddings_for_chunks(chunks)
 
-            # 5️⃣ Store as DICTIONARY chunks ✅
+            # 4️⃣ Store in vector DB
             store.add_embeddings(chunks, embeddings)
 
-            pages_crawled += 1
             total_chunks += len(chunks)
 
         return {
             "message": "Ingestion completed successfully",
-            "pages_crawled": pages_crawled,
+            "pages_crawled": total_pages,
             "total_chunks": total_chunks
         }
 
@@ -106,29 +100,36 @@ def ingest_data(request: IngestRequest):
 @app.post("/query")
 def query_bot(request: QueryRequest):
     print("❓ /query endpoint hit!")
-    try:
 
-        print("✅ Question:", request.question)
+    try:
+        question = request.question
+        print("✅ Question:", question)
+
         # 1. Create embedding for question
-        query_embedding = generator.generate_embedding(request.question)
+        query_embedding = generator.generate_embedding(question)
         print("✅ Query embedding generated")
 
-        # 2. Retrieve relevant chunks using Retriever
-        results = retriever.retrieve(query_embedding, top_k=request.top_k)
-        print("✅ Retrieved Results TYPE:", type(results))
-        print("✅ First result TYPE:", type(results[0]))
-        print("✅ First result VALUE:", results[0])
+        # 2. Retrieve relevant chunks
+        retrieved_chunks = retriever.retrieve(query_embedding, top_k=request.top_k)
+        print("✅ Retrieved Chunks:", len(retrieved_chunks))
 
-        # 3. Generate answer using Gemini
-        answer = gemini.generate_answer(request.question, results)
+        # 3. Clean results for JSON (REMOVE numpy embeddings)
+        for item in retrieved_chunks:
+            if "embedding" in item:
+                del item["embedding"]
+
+        # 4. Generate final answer
+        answer = gemini.generate_answer(question, retrieved_chunks)
 
         return {
+            "question": question,
             "answer": answer,
-            "sources": results
+            "sources": retrieved_chunks
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 
