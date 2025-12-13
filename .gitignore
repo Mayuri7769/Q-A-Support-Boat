@@ -1,6 +1,22 @@
-.env
-venv/
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.env
+
+# VSCode
 .vscode/
-.idea/
+
+# FAISS index and metadata
+faiss.index
+metadata.pkl
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+
